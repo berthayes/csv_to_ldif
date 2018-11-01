@@ -84,6 +84,7 @@ import os
 import sys
 import ldif
 import tempfile
+import unicodedata
 
 def make_ldap_passwd(passwd):
 	ctx = sha.new(passwd)
@@ -92,12 +93,20 @@ def make_ldap_passwd(passwd):
 	return passwd_hash
 
 def parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,group,group_description):
-	with open(csv_file) as f:
+	with open(csv_file, 'rt') as f:
 		f_csv = csv.reader(f)
+		#u = f_csv.decode("utf-8-sig")
+		#f_csv = u.encode("utf-8")
 		headings = next(f_csv)
-		Row = namedtuple('Row',headings)
+		bom_free_headings = []
+		for h in headings:
+			u = h.decode("utf-8-sig")
+			h = u.encode("utf-8")
+			bom_free_headings.append(h)
+		Row = namedtuple('Row',bom_free_headings)
 		member_list = []
 		for r in f_csv:
+
 			row = Row(*r)
 			sn = row.Surname
 			name = row.GivenName + " " + sn
@@ -117,9 +126,10 @@ def parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,group,group_de
 			else: 
 				passwd = str(row.Password)
 			passwd_hash = make_ldap_passwd(passwd)
-			ldap_groupname = str("CN=" + group + ",OU=" + user_cn + "," + base_dn) 
+			ldap_groupname = str("CN=" + group + ",OU=" + user_cn + "," + base_dn)
 			#member_list is needed for group ldif file
-			member_list.append(distinguishedName)
+			group_member_by_uid = str("uid=" + UserId + ",OU=" + user_cn + "," + base_dn)
+			member_list.append(group_member_by_uid)
 
 			user_ldap_info = {
 				'cn':	[name],
@@ -132,38 +142,45 @@ def parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,group,group_de
 				'objectClass':	['person','inetOrgPerson','organizationalPerson']
 			}
 
+			group_ldap_info = {
+				'dn':	[ldap_groupname],
+				'objectClass':	['groupofnames'],
+				'cn':	[group],
+				'description':	[group_description],
+				'member':	member_list
+
+			}
+
 			if args.make_user_ldif:
 				write_ldif(user_ldap_info)
 
-			group_ldap_info = {
-				'dn':	[ldap_groupname],
-				'objectClass':	'groupofnames',
-				'cn':	[group],
-				'description':	[group_description],
-				'member':	[member_list]
+			if args.make_duo_bulk_enroll:
+				duo_bde = UserId + "," + email
+				print(duo_bde)
+			
+		if args.make_group_ldif:
+			#print(group_ldap_info)
+			write_ldif(group_ldap_info)
 
-			}
-			if args.make_group_lidf:
-				group_ldap_info = str(group_ldap_info)
-				write_ldif(group_ldap_info)
+
 
 
 def write_ldif(ldap_info):
 	with open(path, 'a') as fd:
 		ldif_writer = ldif.LDIFWriter(fd)
 		ldif_writer.unparse(base_dn,ldap_info)
-		ugly_hack(path,base_dn)
+		#print(path)
 	fd.close()
 
 
 def ugly_hack(input_file,base_dn):
 	# This is required because Bert is probabaly using ldif.LDIFWriter incorrectly
 	extra_dn = str("dn: " + base_dn)
-	with open(input_file, 'r') as f:
+	with open(input_file, 'rt') as f:
 		for line in f:
 			if extra_dn not in line:
 				sys.stdout.write(line)
-
+	
 
 # First things first - I require a temp file
 fd, path = tempfile.mkstemp()
@@ -175,9 +192,9 @@ parser = argparse.ArgumentParser(description=
 parser.add_argument('-f', dest='conf_file', action='store', help='config file')
 parser.add_argument('-i', dest='csv_file', action='store', help='CSV file to use for input')
 parser.add_argument('-same_pw', dest='same_pw', action='store_true', help='Use passwd in config file for all users')
-#parser.add_argument('-g', dest='group', action='store', help='Group to put users into')
 parser.add_argument('-u', dest='make_user_ldif', action='store_true', help='Use to spit out user info in .ldif form')
-parser.add_argument('-g', dest='make_group_lidf', action='store_true', help='Use to spito ut group info in .ldif form')
+parser.add_argument('-g', dest='make_group_ldif', action='store_true', help='Use to spit out group info in .ldif form')
+parser.add_argument('-be', dest='make_duo_bulk_enroll', action='store_true', help='Use this for Duo Bulk Enrollment')
 
 # If no command line args, print help
 if len(sys.argv)==1:
@@ -227,7 +244,7 @@ group_description = cfg.get('domain_info', 'group_description')
 
 # Send values from config file to parsing function
 parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,user_group,group_description)
-#ugly_hack(path,base_dn)
+ugly_hack(path,base_dn)
 
 
 
