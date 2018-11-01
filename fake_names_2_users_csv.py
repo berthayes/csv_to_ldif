@@ -95,18 +95,19 @@ def make_ldap_passwd(passwd):
 def parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,group,group_description):
 	with open(csv_file, 'rt') as f:
 		f_csv = csv.reader(f)
-		#u = f_csv.decode("utf-8-sig")
-		#f_csv = u.encode("utf-8")
 		headings = next(f_csv)
+		# when you unzip the .csv file from fakenamegenerator.com
+		# the headers start with a BOM unicode character that needs to be stripped
 		bom_free_headings = []
 		for h in headings:
 			u = h.decode("utf-8-sig")
 			h = u.encode("utf-8")
 			bom_free_headings.append(h)
+		# Now the headings have been stripped of the BOM (Byte Order Mark)
 		Row = namedtuple('Row',bom_free_headings)
 		member_list = []
-		for r in f_csv:
 
+		for r in f_csv:
 			row = Row(*r)
 			sn = row.Surname
 			name = row.GivenName + " " + sn
@@ -127,6 +128,7 @@ def parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,group,group_de
 				passwd = str(row.Password)
 			passwd_hash = make_ldap_passwd(passwd)
 			ldap_groupname = str("CN=" + group + ",OU=" + user_cn + "," + base_dn)
+			
 			#member_list is needed for group ldif file
 			group_member_by_uid = str("uid=" + UserId + ",OU=" + user_cn + "," + base_dn)
 			member_list.append(group_member_by_uid)
@@ -148,7 +150,6 @@ def parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,group,group_de
 				'cn':	[group],
 				'description':	[group_description],
 				'member':	member_list
-
 			}
 
 			if args.make_user_ldif:
@@ -157,6 +158,7 @@ def parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,group,group_de
 			if args.make_duo_bulk_enroll:
 				duo_bde = UserId + "," + email
 				print(duo_bde)
+				# TODO - maybe write this to a file instead of stdout
 			
 		if args.make_group_ldif:
 			#print(group_ldap_info)
@@ -180,6 +182,7 @@ def ugly_hack(input_file,base_dn):
 		for line in f:
 			if extra_dn not in line:
 				sys.stdout.write(line)
+				# TODO - maybe write this to a file instead of stdout
 	
 
 # First things first - I require a temp file
