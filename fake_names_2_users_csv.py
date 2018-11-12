@@ -49,29 +49,7 @@
 # GUID
 # Latitude
 # Longitude
-# 
-# 
 
-# This is psuedo code - 
-
-# Open a CSV file
-
-# for each line, get the following values:
-# 
-# GivenName 	e.g. Jaime
-# Surname		e.g. Lewis
-# 
-# Create Full_Name from GivenName + Surname
-# EmailAddress - create this from first initial last name
-# Occupation - use for Description info?
-# 
-#
-# Attributes that are currently grabbed by DAG
-# sAMAccountName,	  <- a logon name that supports previous version of Windows
-# mail,				  <- EmailAddress. bert@utexas.edu - user@burnfatnotoil.org
-# distinguishedName,  <- In LDAP this is CN=Bert Hayes,CN=Users,DC=burnfatnotoil,DC=local
-# userPrincipalName.  <- UserId. (logon name). bert@burnfatnotoil.local
-#
 # Pro tip from Matt Hess - DON'T sync the user's phone number when running Directory Sync
 
 import csv
@@ -191,7 +169,7 @@ fd, path = tempfile.mkstemp()
 
 # Parse command line args
 parser = argparse.ArgumentParser(description=
-	'''This script reads a csv file pulled down from fakenamegenerator.com and attempts to make things happen''')
+	'''This script reads a csv file pulled down from fakenamegenerator.com and attempts to create .ldif files for OpenLDAP''')
 parser.add_argument('-f', dest='conf_file', action='store', help='config file')
 parser.add_argument('-i', dest='csv_file', action='store', help='CSV file to use for input')
 parser.add_argument('-same_pw', dest='same_pw', action='store_true', help='Use passwd in config file for all users')
