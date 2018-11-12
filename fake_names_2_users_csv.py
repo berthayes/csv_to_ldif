@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# fake_names_2_users_csv.py
+## fake_names_2_users_csv.py
 
 # Column headers in FakeNameGenerator file:
 
