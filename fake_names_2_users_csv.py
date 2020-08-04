@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/bin/python3
 
 ## fake_names_2_users_csv.py
 
@@ -50,42 +50,36 @@
 # Latitude
 # Longitude
 
-# Pro tip from Matt Hess - DON'T sync the user's phone number when running Directory Sync
-
 import csv
 from collections import namedtuple
 from configparser import ConfigParser
-import sha
+import hashlib
 from base64 import b64encode
 import argparse
 import os
+import io
 import sys
 import ldif
 import tempfile
 import unicodedata
 
 def make_ldap_passwd(passwd):
-	ctx = sha.new(passwd)
-	passwd_hash = "{SHA}" + b64encode(ctx.digest())
-	passwd_hash = str(passwd_hash)
+	hash = hashlib.new('sha1')
+	hash.update(passwd.encode('utf8'))
+	hash_string = b64encode(hash.digest())
+	hash_string = hash_string.decode('utf8')
+	passwd_hash = "{SHA}" + hash_string
 	return passwd_hash
 
 def parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,group,group_description):
 	with open(csv_file, 'rt') as f:
 		f_csv = csv.reader(f)
 		headings = next(f_csv)
-		# when you unzip the .csv file from fakenamegenerator.com
-		# the headers start with a BOM unicode character that needs to be stripped
-		bom_free_headings = []
-		for h in headings:
-			u = h.decode("utf-8-sig")
-			h = u.encode("utf-8")
-			bom_free_headings.append(h)
-		# Now the headings have been stripped of the BOM (Byte Order Mark)
-		Row = namedtuple('Row',bom_free_headings)
+		Row = namedtuple('Row',headings)
 		member_list = []
 
 		for r in f_csv:
+			base_dn = str(base_dn)
 			row = Row(*r)
 			sn = row.Surname
 			name = row.GivenName + " " + sn
@@ -131,7 +125,7 @@ def parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,group,group_de
 			}
 
 			if args.make_user_ldif:
-				write_ldif(user_ldap_info)
+				write_ldif(base_dn,user_ldap_info)
 
 			if args.make_duo_bulk_enroll:
 				duo_bde = UserId + "," + email
@@ -139,17 +133,15 @@ def parse_fake_names_csv(args,email_domain,base_dn,user_cn,passwd,group,group_de
 				# TODO - maybe write this to a file instead of stdout
 			
 		if args.make_group_ldif:
-			#print(group_ldap_info)
-			write_ldif(group_ldap_info)
+			write_ldif(base_dn,group_ldap_info)
 
 
 
 
-def write_ldif(ldap_info):
-	with open(path, 'a') as fd:
+def write_ldif(base_dn,ldap_info):
+	with open(path, 'ab') as fd:
 		ldif_writer = ldif.LDIFWriter(fd)
 		ldif_writer.unparse(base_dn,ldap_info)
-		#print(path)
 	fd.close()
 
 
